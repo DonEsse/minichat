@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Chat de Suporte - Atendente</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+  <script src="firebase.js"></script>
+</head>
+<body>
+  <div class="chat-container">
+    <h2>👩‍💻 Painel do Atendente</h2>
+
+    <!-- Lista de clientes -->
+    <div id="lista-clientes"></div>
+
+    <!-- Área de chat -->
+    <div id="chat-area" style="display:none;">
+      <h3 id="clienteSelecionado"></h3>
+      <div id="chat-box"></div>
+      <div id="digitando-status" style="font-size:12px; color:gray; margin-top:-5px; margin-bottom:5px;"></div>
+
+      <div class="input-area">
+        <input id="mensagem" type="text" placeholder="Digite sua mensagem..." />
+        <button class="enviar" id="btnEnviar">Enviar</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const listaClientes = document.getElementById('lista-clientes');
+    const chatArea = document.getElementById('chat-area');
+    const chatBox = document.getElementById('chat-box');
+    const msgInput = document.getElementById('mensagem');
+    const btnEnviar = document.getElementById('btnEnviar');
+    const clienteSelecionadoNome = document.getElementById('clienteSelecionado');
+    const digitandoStatus = document.getElementById('digitando-status');
+    let clienteAtual = null;
+    let typingTimeout;
+
+    // 🕓 Formata o horário da mensagem
+    function formatarHora(timestamp) {
+      const data = new Date(timestamp);
+      return data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    // 🔄 Atualiza lista de clientes conectados
+    db.ref('suporte').on('value', (snapshot) => {
+      listaClientes.innerHTML = '';
+      snapshot.forEach(cli => {
+        const id = cli.key;
+        const status = cli.val().status || 'aguardando';
+        const btn = document.createElement('button');
+        btn.textContent = `${id} (${status})`;
+        btn.onclick = () => abrirChat(id);
+        listaClientes.appendChild(btn);
+      });
+    });
+
+    // 📂 Abre o chat do cliente selecionado
+    function abrirChat(idCliente) {
+      clienteAtual = idCliente;
+      chatArea.style.display = 'block';
+      clienteSelecionadoNome.textContent = `Atendendo: ${idCliente}`;
+      chatBox.innerHTML = '';
+
+      db.ref('suporte/' + idCliente + '/mensagens').off();
+      db.ref('suporte/' + idCliente + '/mensagens').on('child_added', (snapshot) => {
+        const msg = snapshot.val();
+        addMensagem(`${msg.nome}: ${msg.texto}`, msg.autor, formatarHora(msg.timestamp));
+      });
+
+      // Escuta status "digitando" do cliente
+      db.ref('suporte/' + idCliente + '/digitandoCliente').on('value', (snapshot) => {
+        const status = snapshot.val();
+        digitandoStatus.textContent = status ? "🧑 Cliente está digitando..." : "";
+      });
+
+      db.ref('suporte/' + idCliente + '/status').set('em atendimento');
+    }
+
+    // 💬 Exibe mensagem no chat
+    function addMensagem(texto, autor, hora) {
+      const div = document.createElement('div');
+      div.className = `msg ${autor}`;
+      div.innerHTML = `${texto}<span class="hora">${hora}</span>`;
+      chatBox.appendChild(div);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    // 🚀 Envia mensagem
+    function enviarMensagem() {
+      if (!clienteAtual || msgInput.value.trim() === '') return;
+
+      const msg = {
+        nome: 'Atendente',
+        texto: msgInput.value,
+        autor: 'atendente',
+        timestamp: Date.now()
+      };
+      db.ref('suporte/' + clienteAtual + '/mensagens').push(msg);
+      msgInput.value = '';
+    }
+
+    // 🔘 Clique no botão enviar
+    btnEnviar.addEventListener('click', enviarMensagem);
+
+    // ⌨️ Pressionar Enter envia mensagem
+    msgInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        enviarMensagem();
+      } else {
+        // marca como "digitando"
+        if (clienteAtual) {
+          db.ref('suporte/' + clienteAtual + '/digitandoAtendente').set(true);
+          clearTimeout(typingTimeout);
+          typingTimeout = setTimeout(() => {
+            db.ref('suporte/' + clienteAtual + '/digitandoAtendente').set(false);
+          }, 2000);
+        }
+      }
+    });
+  </script>
+</body>
+</html>
