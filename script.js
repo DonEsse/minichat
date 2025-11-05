@@ -44,7 +44,7 @@ function mostrarTyping(autor, ativo) {
       if (autor === "cliente") {
         el.textContent = papel === "cliente" ? "Você digitando..." : "Cliente digitando...";
       } else {
-        el.textContent = papel === "atendente" ? "Você digitando..." : "Atendente digitando...";
+        el.textContent = papel === "atendente" ? "Você digitando..." : "🧑 Atendente está digitando...";
       }
 
       chatBox.appendChild(el);
@@ -92,7 +92,7 @@ function processarMensagem() {
   else if (etapa === "cpf") {
     cpfCliente = texto;
     adicionarMensagem(`Meu CPF é ${cpfCliente}.`, "cliente");
-    adicionarMensagem(`Perfeito! Verificando suas informações, digite sua mensagem abaixo e breve você será atendido!`, "atendente");
+    adicionarMensagem(`Perfeito! Verificando suas informações, digite sua mensagem abaixo e em breve você será atendido!`, "atendente");
     etapa = "chat";
     input.value = "";
     input.placeholder = "Digite sua mensagem...";
