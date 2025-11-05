@@ -72,7 +72,7 @@
       });
 
       // Escuta status "digitando" do cliente
-      db.ref('suporte/' + idCliente + '/digitandoCliente').on('value', (snapshot) => {
+      db.ref('suporte/' + idCliente + '/typing/cliente').on('value', (snapshot) => {
         const status = snapshot.val();
         digitandoStatus.textContent = status ? "🧑 Cliente está digitando..." : "";
       });
@@ -101,6 +101,11 @@
       };
       db.ref('suporte/' + clienteAtual + '/mensagens').push(msg);
       msgInput.value = '';
+      // Remove status de digitando ao enviar
+      if (clienteAtual) {
+        db.ref('suporte/' + clienteAtual + '/typing/atendente').set(false);
+        clearTimeout(typingTimeout);
+      }
     }
 
     // 🔘 Clique no botão enviar
@@ -110,15 +115,33 @@
     msgInput.addEventListener('keypress', (e) => {
       if (e.key === 'Enter') {
         enviarMensagem();
+      }
+    });
+
+    // 🔄 Detecta quando o atendente está digitando
+    msgInput.addEventListener('input', () => {
+      if (!clienteAtual) return;
+
+      if (msgInput.value.trim() !== "") {
+        // indica que está digitando
+        db.ref('suporte/' + clienteAtual + '/typing/atendente').set(true);
+        
+        // reinicia timeout para desligar indicador após inatividade (2s)
+        clearTimeout(typingTimeout);
+        typingTimeout = setTimeout(() => {
+          db.ref('suporte/' + clienteAtual + '/typing/atendente').set(false);
+        }, 2000);
       } else {
-        // marca como "digitando"
-        if (clienteAtual) {
-          db.ref('suporte/' + clienteAtual + '/digitandoAtendente').set(true);
-          clearTimeout(typingTimeout);
-          typingTimeout = setTimeout(() => {
-            db.ref('suporte/' + clienteAtual + '/digitandoAtendente').set(false);
-          }, 2000);
-        }
+        // campo vazio -> não está digitando
+        clearTimeout(typingTimeout);
+        db.ref('suporte/' + clienteAtual + '/typing/atendente').set(false);
+      }
+    });
+
+    // 🚪 Limpa flag de typing ao fechar a aba/janela
+    window.addEventListener("beforeunload", () => {
+      if (clienteAtual) {
+        db.ref('suporte/' + clienteAtual + '/typing/atendente').set(false);
       }
     });
   </script>
